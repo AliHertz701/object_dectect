@@ -8,7 +8,7 @@ class Detection {
   final double w;
   final double h;
 
-  Detection({
+  const Detection({
     required this.label,
     required this.score,
     required this.x,
@@ -16,40 +16,52 @@ class Detection {
     required this.w,
     required this.h,
   });
+
+  @override
+  String toString() =>
+      'Detection(label: $label, score: ${(score * 100).toStringAsFixed(1)}%, '
+      'x: $x, y: $y, w: $w, h: $h)';
 }
 
 class PostProcessor {
-  static List<Detection> decode(Map output) {
-    final boxes = output["boxes"][0];
-    final classes = output["classes"][0];
-    final scores = output["scores"][0];
-    final count = output["count"][0].toInt();
+  static const double _confidenceThreshold = 0.75;
 
-    List<Detection> results = [];
+  static List<Detection> decode(Map<String, dynamic> output) {
+    final boxes = output["boxes"][0] as List;
+    final classes = output["classes"][0] as List;
+    final scores = output["scores"][0] as List;
+    final count = (output["count"][0] as num).toInt();
+
+    final List<Detection> results = [];
 
     for (int i = 0; i < count; i++) {
-      final score = scores[i];
+      final double score = (scores[i] as num).toDouble();
 
-      // lower threshold first for debugging
-      if (score > 0.4) {
-        final box = boxes[i];
+      // Skip detections below confidence threshold (< 75%)
+      if (score < _confidenceThreshold) continue;
 
-        final classId = classes[i].toInt();
+      final box = boxes[i] as List;
+      final classId = (classes[i] as num).toInt();
 
-        results.add(
-          Detection(
-            label: Labels.get(classId), // 🔥 THIS FIXES YOUR PROBLEM
-            score: score,
+      final double yMin = (box[0] as num).toDouble();
+      final double xMin = (box[1] as num).toDouble();
+      final double yMax = (box[2] as num).toDouble();
+      final double xMax = (box[3] as num).toDouble();
 
-            // SSD format: ymin, xmin, ymax, xmax
-            y: box[0],
-            x: box[1],
-            w: box[3] - box[1],
-            h: box[2] - box[0],
-          ),
-        );
-      }
+      results.add(
+        Detection(
+          label: Labels.get(classId),
+          score: score,
+          x: xMin,
+          y: yMin,
+          w: xMax - xMin,
+          h: yMax - yMin,
+        ),
+      );
     }
+
+    // Sort by confidence descending (highest confidence first)
+    results.sort((a, b) => b.score.compareTo(a.score));
 
     return results;
   }

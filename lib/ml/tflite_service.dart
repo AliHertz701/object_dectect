@@ -17,7 +17,7 @@ class TFLiteService {
       imageHeight: image.height,
       imageWidth: image.width,
       numResultsPerClass: 1,
-      threshold: 0.4,
+      threshold: 0.65,
       asynch: true,
     );
   }
